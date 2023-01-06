@@ -1,4 +1,5 @@
 from pathlib import Path
+from time import monotonic
 from typing import List, Tuple, Any
 
 import numpy as np
@@ -24,7 +25,7 @@ def _load_data() -> DataFrame:
 
 
 def create_vector_representation(data: List[str]) -> npt.NDArray[Any]:
-    return np.stack([sentence_transformer.encode(sentence) for sentence in data])
+    return sentence_transformer.encode(data)
 
 
 def train_test_split(data: DataFrame):
@@ -79,22 +80,24 @@ def create_queries(data: DataFrame, load_from_file: bool, file_path: Path, query
     """
     if load_from_file and file_path.is_file():
         return pd.read_csv(file_path)
-    queries: List[Tuple[str, npt.NDArray[Any], int, bool]] = []
-    for document_index, sentences in tqdm(
-            enumerate([split_into_sentences(text) for text in data.text]),  # TODO remove
-            desc="Creating queries"
-    ):
-        query_text_n = [(q, n) for sentence in sentences for n in query_sizes for q in
-                       split_sentence_into_n_word_strings(sentence, n)]
-        query_texts, _ = map(list, zip(*query_text_n))
-        query_vectors = sentence_transformer.encode(query_texts)
-        for (query, n), vector in zip(query_text_n, query_vectors):
-            queries.append((n, query, vector, document_index, True))
-            try:
-                irrelevant_document_index = find_random_negative(query, data)
-                queries.append((n, query, vector, irrelevant_document_index, False))
-            except ValueError as e:
-                print(e)
+    queries: List[Tuple[int, str, npt.NDArray[Any], int, bool]] = []
+    query_text_n = [(q, n, document_index) for document_index, sentences in
+                    tqdm(enumerate([split_into_sentences(text) for text in data.text])) for sentence in sentences
+                    for n
+                    in query_sizes for q in
+                    split_sentence_into_n_word_strings(sentence, n)]
+    query_texts, _, _ = map(list, zip(*query_text_n))
+    pre = monotonic()
+    query_vectors = sentence_transformer.encode(query_texts)
+    print(f"Encoded all queries in {monotonic() - pre}")
+
+    for (query, n, document_index), vector in zip(query_text_n, query_vectors):
+        queries.append((n, query, vector, document_index, True))
+        try:
+            irrelevant_document_index = find_random_negative(query, data)
+            queries.append((n, query, vector, irrelevant_document_index, False))
+        except ValueError as e:
+            print(e)
     query_dataframe = DataFrame(data=queries, columns=['len_of_text', 'text', 'vector', 'document', 'relevance'])
     query_dataframe.to_csv(file_path)
     return query_dataframe
@@ -111,8 +114,8 @@ def preprocess_data(batch_size: int) -> Tuple[DataLoader, DataLoader]:
                                tqdm(data.text, desc="Converting text to single vector")]
         data.to_csv(song_data_path())
     train_data, test_data = train_test_split(data)
-    train_queries = create_queries(data=train_data, load_from_file=False,
-                                   file_path=Path('train_queries_len_345710.csv'), query_sizes=[3, 5, 7, 10])
-    test_queries = create_queries(data=test_data, load_from_file=False, file_path=Path('test_queries_len_345710.csv'),
-                                  query_sizes=[3, 5, 7, 10])
+    train_queries = create_queries(data=train_data, load_from_file=True,
+                                   file_path=Path('train_queries_len_4710.csv'), query_sizes=[4, 7, 10])
+    test_queries = create_queries(data=test_data, load_from_file=True, file_path=Path('test_queries_len_4710.csv'),
+                                  query_sizes=[4, 7, 10])
     return DataLoader(train_queries, batch_size=batch_size), DataLoader(test_queries, batch_size=batch_size)
