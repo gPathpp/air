@@ -29,7 +29,7 @@ def create_vector_representation(data: List[str]) -> npt.NDArray[Any]:
 
 
 def train_test_split(data: DataFrame):
-    return sklearn.model_selection.train_test_split(data, test_size=0.2)
+    return sklearn.model_selection.train_test_split(data, test_size=0.2, random_state=42)
 
 
 def split_into_sentences(text: str) -> List[str]:
