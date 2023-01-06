@@ -82,7 +82,7 @@ def create_queries(data: DataFrame, load_from_file: bool, file_path: Path, query
         return pd.read_csv(file_path)
     queries: List[Tuple[int, str, npt.NDArray[Any], int, bool]] = []
     query_text_n = [(q, n, document_index) for document_index, sentences in
-                    tqdm(enumerate([split_into_sentences(text) for text in data.text])) for sentence in sentences
+                    tqdm([(i, split_into_sentences(text)) for i, text in list(zip(data.index, data.text))[:5]]) for sentence in sentences
                     for n
                     in query_sizes for q in
                     split_sentence_into_n_word_strings(sentence, n)]
@@ -115,7 +115,7 @@ def preprocess_data(batch_size: int) -> Tuple[DataLoader, DataLoader]:
         data.to_csv(song_data_path())
     train_data, test_data = train_test_split(data)
     train_queries = create_queries(data=train_data, load_from_file=True,
-                                   file_path=Path('train_queries_len_4710.csv'), query_sizes=[4, 7, 10])
-    test_queries = create_queries(data=test_data, load_from_file=True, file_path=Path('test_queries_len_4710.csv'),
-                                  query_sizes=[4, 7, 10])
+                                   file_path=Path('train_queries_len_410.csv'), query_sizes=[4, 10])
+    test_queries = create_queries(data=test_data, load_from_file=True, file_path=Path('test_queries_len_410.csv'),
+                                  query_sizes=[4, 10])
     return DataLoader(train_queries, batch_size=batch_size), DataLoader(test_queries, batch_size=batch_size)
