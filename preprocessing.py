@@ -82,7 +82,7 @@ def create_queries(data: DataFrame, load_from_file: bool, file_path: Path, query
         return pd.read_csv(file_path)
     queries: List[Tuple[int, str, npt.NDArray[Any], int, bool]] = []
     query_text_n = [(q, n, document_index) for document_index, sentences in
-                    tqdm([(i, split_into_sentences(text)) for i, text in list(zip(data.index, data.text))[:5]]) for sentence in sentences
+                    tqdm([(i, split_into_sentences(text)) for i, text in zip(data.index, data.text)]) for sentence in sentences
                     for n
                     in query_sizes for q in
                     split_sentence_into_n_word_strings(sentence, n)]
