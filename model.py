@@ -28,16 +28,10 @@ def train(dataloader, model, optimizer, loss_fn):
     cnt = 1
     truepos, falsepos, falseneg = 0, 0, 0
 
-    for len, qtext, qvec, idxdoc, relevant in dataloader:
+    for qlen, qvec, idxdoc, target in dataloader:
 
         X = torch.cat((qvec, idxdoc), -1)
         pred = model(X)
-
-        if relevant:
-            target = torch.tensor([1])
-        else:
-            target = torch.tensor([0])
-
         loss = loss_fn(pred, target.to(torch.float32))
 
         if pred == 1 and target == 1:
@@ -56,7 +50,6 @@ def train(dataloader, model, optimizer, loss_fn):
             precision = truepos / (truepos + falsepos + 0.0001)
             recall = truepos / (truepos + falseneg + 0.0001)
             f1 = 2 * (precision * recall) / (precision + recall + 0.0001)
-            print(f"--------- {cnt} batches ---------")
             print(f"Train loss: {loss:>7f}")
             print(f"F1 score: {f1:>7f} \n")
         cnt += 1
@@ -69,15 +62,10 @@ def test(dataloader, model, loss_fn):
     model.eval()
     test_loss, correct = 0, 0
     with torch.no_grad():
-        for len, qtext, qvec, idxdoc, relevant in dataloader:
+        for qlen, qvec, idxdoc, target in dataloader:
 
             X = torch.cat((qvec, idxdoc), -1)
             pred = model(X)
-
-            if relevant:
-                target = torch.tensor([1])
-            else:
-                target = torch.tensor([0])
 
             test_loss += loss_fn(pred, target.to(torch.float32)).item()
 
