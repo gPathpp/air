@@ -80,26 +80,28 @@ def create_queries(data: DataFrame, load_from_file: bool, file_path: Path, query
     """
     if load_from_file and file_path.is_file():
         return pd.read_csv(file_path)
-    queries: List[Tuple[int, str, npt.NDArray[Any], int, bool]] = []
+    queries: List[Tuple[int, str, int, bool]] = []
     query_text_n = [(q, n, document_index) for document_index, sentences in
-                    tqdm([(i, split_into_sentences(text)) for i, text in zip(data.index, data.text)]) for sentence in sentences
-                    for n
-                    in query_sizes for q in
-                    split_sentence_into_n_word_strings(sentence, n)]
+                    tqdm([(i, split_into_sentences(text)) for i, text in zip(data.index, data.text)])
+                    for sentence in sentences
+                    for n in query_sizes
+                    for q in split_sentence_into_n_word_strings(sentence, n)]
     query_texts, _, _ = map(list, zip(*query_text_n))
     pre = monotonic()
-    query_vectors = sentence_transformer.encode(query_texts)
+    #query_vectors = sentence_transformer.encode(query_texts)
     print(f"Encoded all queries in {monotonic() - pre}")
 
-    for (query, n, document_index), vector in zip(query_text_n, query_vectors):
-        queries.append((n, query, vector, document_index, True))
+    for query, n, document_index in tqdm(query_text_n, desc='Create queries'):
+        queries.append((n, query, document_index, True))
         try:
             irrelevant_document_index = find_random_negative(query, data)
-            queries.append((n, query, vector, irrelevant_document_index, False))
+            queries.append((n, query, irrelevant_document_index, False))
         except ValueError as e:
             print(e)
-    query_dataframe = DataFrame(data=queries, columns=['len_of_text', 'text', 'vector', 'document', 'relevance'])
+    print("Writing to file.")
+    query_dataframe = DataFrame(data=queries, columns=['len_of_text', 'text', 'document', 'relevance'])
     query_dataframe.to_csv(file_path)
+    print("Finished writing")
     return query_dataframe
 
 
