@@ -13,5 +13,9 @@ if __name__ == "__main__":
     # loss_fn = torch.nn.CrossEntropyLoss()
     # model.eval()  # set into eval mode TODO remove
     # print(model.forward(torch.from_numpy(np.random.random(inputs))))
+
+    # The optimizer and loss function I used for binary classification in homework
+    # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    # loss_fn = torch.nn.BCELoss()
     train_loader, test_loader = preprocess_data(batch_size=10_000)
     # TODO train
