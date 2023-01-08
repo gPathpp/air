@@ -1,5 +1,7 @@
 import pandas as pd
+import sklearn.metrics
 import torch
+from sklearn.metrics import f1_score
 from torch import nn
 
 
@@ -12,11 +14,13 @@ class DenseNet(nn.Module):
         super(DenseNet, self).__init__()
 
         self.net = nn.Sequential(
-            nn.Linear(inputs, 125),
+            nn.Linear(inputs, inputs),
             nn.LeakyReLU(),
-            nn.Linear(125, 125),
+            nn.Linear(inputs, inputs),
             nn.LeakyReLU(),
-            nn.Linear(125, outputs),
+            nn.Linear(inputs, inputs),
+            nn.LeakyReLU(),
+            nn.Linear(inputs, outputs),
             nn.Softmax(dim=0)
         )
 
@@ -26,8 +30,7 @@ class DenseNet(nn.Module):
 
 def train(dataloader, model, optimizer, loss_fn):
     model.train()
-    cnt = 1
-    truepos, falsepos, falseneg = 0, 0, 0
+    total_truepos, total_falsepos, total_falseneg = 0, 0, 0
 
     for q_vec, doc_vec, target in dataloader:
         X = torch.cat((q_vec, doc_vec), -1)
@@ -38,19 +41,31 @@ def train(dataloader, model, optimizer, loss_fn):
         loss.backward()
         optimizer.step()
 
-        truepos += torch.sum((torch.round(pred) == target == 1).float()).float()
-        falsepos += torch.sum((torch.round(pred) != target == 1).float()).float()
-        falseneg += torch.sum((torch.round(pred) != target == 0).float()).float()
-        if cnt == len(dataloader):
-            loss = loss.item()
-            precision = truepos / (truepos + falsepos + 0.0001)
-            recall = truepos / (truepos + falseneg + 0.0001)
-            f1 = 2 * (precision * recall) / (precision + recall + 0.0001)
-            print(f"Train loss: {loss:>7f}")
-            print(f"F1 score: {f1:>7f} \n")
-        cnt += 1
+        pred_is_relevant = torch.round(pred)
+        truepos = torch.sum(torch.logical_and(pred_is_relevant == 1, target == 1).float()).float()
+        falsepos = torch.sum(torch.logical_and(pred_is_relevant == 1, target == 0).float()).float()
+        falseneg = torch.sum(torch.logical_and(pred_is_relevant == 0, target == 1).float()).float()
+
+        f1 = calc_f1(falseneg, falsepos, truepos)
+        loss = loss.item()
+        print(f"Batch loss: {loss:>7f}")
+        print(f"Batch F1 score: {f1:>7f} \n")
+        total_truepos += truepos
+        total_falsepos += falsepos
+        total_falseneg += falseneg
+
+    f1 = calc_f1(total_falseneg, total_falsepos, total_truepos)
+    print(f"Train loss: {loss:>7f}")
+    print(f"F1 score: {f1:>7f} \n")
 
     return loss
+
+
+def calc_f1(falseneg: float, falsepos: float, truepos: float) -> float:
+    precision = truepos / (truepos + falsepos) if truepos + falsepos > 0 else 0
+    recall = truepos / (truepos + falseneg) if truepos + falseneg > 0 else 0
+    f1 = 2 * (precision * recall) / (precision + recall + 0.0001)
+    return f1
 
 
 def test(dataloader, model, loss_fn):

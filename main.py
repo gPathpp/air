@@ -28,7 +28,7 @@ if __name__ == "__main__":
     model = DenseNet(384 * 2, 1)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     loss_fn = torch.nn.BCELoss()
-    train_loader, test_loader = preprocess_data(batch_size=1000)
+    train_loader, test_loader = preprocess_data(batch_size=2500)
 
     print("Training started")
     for i in range(5):
