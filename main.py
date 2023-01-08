@@ -1,7 +1,5 @@
-import numpy as np
 import pandas as pd
 import torch
-from tqdm import tqdm
 
 from model import DenseNet
 from model import test
@@ -25,8 +23,11 @@ if __name__ == "__main__":
         test_loss_dict[q_len] = []
         train_f1_dict[q_len] = []
         test_f1_dict[q_len] = []
+
         cos_train_f1_dict[q_len] = []
         cos_test_f1_dict[q_len] = []
+        cos_train_loss_dict[query_length] = []
+        cos_test_loss_dict[query_length] = []
         # ---------------------------------------------------------------------------------------
         for i in tqdm(range(100), desc=f"Train model for query_length {q_len}. Epoch"):
             train_loss, train_f1 = train(train_loader, model, optimizer, loss_fn)
@@ -38,9 +39,24 @@ if __name__ == "__main__":
             # TODO Covariance
             #   cos_train_f1_dict[query_length] = []
             #   cos_test_f1_dict[query_length] = []
-        print(f"Min test-loss value: {np.min(test_loss_dict[q_len])} at Epoch {np.argmin(test_loss_dict[q_len])}")
+
+            baseline_train_loss, baseline_train_f1 = train_baseline(train_loader, loss_fn)
+            baseline_test_loss, baseline_test_f1 = test_baseline(test_loader, loss_fn)
+
+            cos_train_f1_dict[query_length].append(baseline_train_f1)
+            cos_test_f1_dict[query_length].append(baseline_test_f1)
+            cos_train_loss_dict[query_length].append(baseline_train_loss)
+            cos_test_loss_dict[query_length].append(baseline_test_loss)
+
         print(f"Max test-F1-score: {np.max(test_f1_dict[q_len])} at Epoch: {np.argmax(test_f1_dict[q_len])}")
+        print(f"Min test-loss value: {np.min(test_loss_dict[q_len])} at Epoch {np.argmin(test_loss_dict[q_len])}")
+
     pd.DataFrame(data=train_loss_dict).to_csv("train_loss.csv")
     pd.DataFrame(data=test_loss_dict).to_csv("test_loss.csv")
     pd.DataFrame(data=train_f1_dict).to_csv("train_f1.csv")
     pd.DataFrame(data=test_f1_dict).to_csv("test_f1.csv")
+
+    pd.DataFrame(data=cos_train_f1_dict).to_csv("cos_train_f1.csv")
+    pd.DataFrame(data=cos_test_f1_dict).to_csv("cos_test_f1.csv")
+    pd.DataFrame(data=cos_train_loss_dict).to_csv("cos_train_loss.csv")
+    pd.DataFrame(data=cos_test_loss_dict).to_csv("cos_test_loss.csv")
