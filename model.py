@@ -38,24 +38,12 @@ def train(dataloader, model, optimizer, loss_fn):
         optimizer.step()
 
         pred_is_relevant = torch.round(pred)
-        truepos = torch.sum(torch.logical_and(pred_is_relevant == 1, target == 1).float()).float()
-        falsepos = torch.sum(torch.logical_and(pred_is_relevant == 1, target == 0).float()).float()
-        falseneg = torch.sum(torch.logical_and(pred_is_relevant == 0, target == 1).float()).float()
+        total_truepos += torch.sum(torch.logical_and(pred_is_relevant == 1, target == 1).float()).float()
+        total_falsepos += torch.sum(torch.logical_and(pred_is_relevant == 1, target == 0).float()).float()
+        total_falseneg += torch.sum(torch.logical_and(pred_is_relevant == 0, target == 1).float()).float()
+        total_loss += loss.item()
 
-        f1 = calc_f1(falseneg, falsepos, truepos)
-        loss = loss.item()
-        print(f"Train Batch loss: {loss:>7f}")
-        print(f"Train Batch F1 score: {f1:>7f} \n")
-        total_truepos += truepos
-        total_falsepos += falsepos
-        total_falseneg += falseneg
-        total_loss += loss
-
-    total_f1 = calc_f1(total_falseneg, total_falsepos, total_truepos)
-    total_loss = total_loss / len(dataloader)
-    print(f"Epoch loss: {total_loss:>7f}")
-    print(f"F1 score: {total_f1:>7f} \n")
-    return float(total_loss), float(total_f1)
+    return float(total_loss / len(dataloader)), float(calc_f1(total_falseneg, total_falsepos, total_truepos))
 
 
 def calc_f1(falseneg: float, falsepos: float, truepos: float) -> float:
@@ -74,24 +62,12 @@ def test(dataloader, model, loss_fn):
             X = torch.cat((q_vec, doc_vec), -1)
             pred = model(X)
             loss = loss_fn(pred, target.to(torch.float32))
-
             pred_is_relevant = torch.round(pred)
-            truepos = torch.sum(torch.logical_and(pred_is_relevant == 1, target == 1).float()).float()
-            falsepos = torch.sum(torch.logical_and(pred_is_relevant == 1, target == 0).float()).float()
-            falseneg = torch.sum(torch.logical_and(pred_is_relevant == 0, target == 1).float()).float()
-
-            f1 = calc_f1(falseneg, falsepos, truepos)
             loss = loss.item()
-            print(f"Test Batch loss: {loss:>7f}")
-            print(f"Test Batch F1 score: {f1:>7f} \n")
-            total_truepos += truepos
-            total_falsepos += falsepos
-            total_falseneg += falseneg
+            total_truepos += torch.sum(torch.logical_and(pred_is_relevant == 1, target == 1).float()).float()
+            total_falsepos += torch.sum(torch.logical_and(pred_is_relevant == 1, target == 0).float()).float()
+            total_falseneg += torch.sum(torch.logical_and(pred_is_relevant == 0, target == 1).float()).float()
             total_loss += loss
 
-        total_f1 = calc_f1(total_falseneg, total_falsepos, total_truepos)
-        total_loss = total_loss / len(dataloader)
-        print(f"Test Epoch loss: {total_loss:>7f}")
-        print(f"Test F1 score: {total_f1:>7f} \n")
-        return float(total_loss), float(total_f1)
+    return float(total_loss / len(dataloader)), float(calc_f1(total_falseneg, total_falsepos, total_truepos))
 

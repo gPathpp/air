@@ -1,5 +1,6 @@
 import pandas as pd
 import torch
+from tqdm import tqdm
 
 from model import DenseNet
 from model import test
@@ -13,7 +14,7 @@ if __name__ == "__main__":
     train_loss_dict, test_loss_dict = {}, {}
     train_f1_dict, test_f1_dict = {}, {}
     cos_train_f1_dict, cos_test_f1_dict = {}, {}
-    for query_length in [20, 30, 50, 75, 100]:
+    for query_length in [5, 15, 30, 50, 75, 100]:
         model = DenseNet(384 * 2, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
         loss_fn = torch.nn.BCELoss()
@@ -26,9 +27,7 @@ if __name__ == "__main__":
         cos_train_f1_dict[query_length] = []
         cos_test_f1_dict[query_length] = []
         # ---------------------------------------------------------------------------------------
-        print("Training started")
-        for i in range(100):
-            print(f"Epoch {i + 1}\n-------------------------------")
+        for i in tqdm(range(100), desc=f"Train model for query_length {query_length}. Epoch"):
             train_loss, train_f1 = train(train_loader, model, optimizer, loss_fn)
             test_loss, test_f1 = test(test_loader, model, loss_fn)
             train_loss_dict[query_length].append(train_loss)
