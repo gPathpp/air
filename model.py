@@ -1,3 +1,4 @@
+import pandas as pd
 import torch
 from torch import nn
 
@@ -28,23 +29,18 @@ def train(dataloader, model, optimizer, loss_fn):
     cnt = 1
     truepos, falsepos, falseneg = 0, 0, 0
 
-    for qlen, qvec, idxdoc, target in dataloader:
-
-        X = torch.cat((qvec, idxdoc), -1)
+    for q_vec, doc_vec, target in dataloader:
+        X = torch.cat((q_vec, doc_vec), -1)
         pred = model(X)
         loss = loss_fn(pred, target.to(torch.float32))
-
-        if pred == 1 and target == 1:
-            truepos += 1
-        if pred == 1 and target == 0:
-            falsepos += 1
-        if pred == 0 and target == 1:
-            falseneg += 1
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
+        truepos += torch.sum((torch.round(pred) == target == 1).float()).float()
+        falsepos += torch.sum((torch.round(pred) != target == 1).float()).float()
+        falseneg += torch.sum((torch.round(pred) != target == 0).float()).float()
         if cnt == len(dataloader):
             loss = loss.item()
             precision = truepos / (truepos + falsepos + 0.0001)
@@ -63,17 +59,10 @@ def test(dataloader, model, loss_fn):
     test_loss, correct = 0, 0
     with torch.no_grad():
         for qlen, qvec, idxdoc, target in dataloader:
-
             X = torch.cat((qvec, idxdoc), -1)
             pred = model(X)
-
             test_loss += loss_fn(pred, target.to(torch.float32)).item()
-
-            if pred == 1 and target == 1:
-                correct += 1
-            if pred == 0 and target == 0:
-                correct += 1
-            size += 1
+            correct += torch.sum(pred == target)
 
     test_loss /= size
     correct /= size

@@ -14,14 +14,15 @@ from tqdm import tqdm
 from multiprocessing import Pool
 
 sentence_transformer = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')  # TODO try different pretrained model
-
+sentence_transformer.max_seq_length = 512
 
 def song_data_path() -> Path:
-    return Path("spotify_millsongdata.csv")
+    return Path("spotify_abba_songdata.csv")
 
 
-def _load_data() -> DataFrame:
-    return pd.read_csv(song_data_path())
+def _load_data(path: Path) -> DataFrame:
+    full = pd.read_csv(path)
+    return full[full.artist == "ABBA"][["artist", "song", "link", "text"]]
 
 
 def create_vector_representation(data: List[str]) -> npt.NDArray[Any]:
@@ -53,71 +54,62 @@ def split_sentence_into_n_word_strings(sentence: str, n: int) -> List[str]:
 def find_random_negative(query_text: str, data_set: DataFrame, max_retries=42):
     # One negative per positive query example should be sufficient.
     # BALANCED AS ALL THINGS SHOULD BE
-    index = np.random.randint(0, len(data_set))
+    index = np.random.choice(data_set.index.tolist(), 1)
     retry = 0
-    while query_text in data_set.text.iloc[index]:
-        index = np.random.randint(0, len(data_set))
+    while query_text in data_set.text[index]:
+        index = np.random.choice(data_set.index.tolist(), 1)
+        retry += 1
         if retry > max_retries:
             raise ValueError(f"Tried {retry} times to find an document not containing {query_text=}")
 
-    return index
+    return int(index)
 
 
-def create_queries(data: DataFrame, load_from_file: bool, file_path: Path, query_sizes: List[int]) -> DataFrame:
+def create_queries(data: DataFrame, query_sizes: List[int]) -> List[
+    Tuple[npt.NDArray[Any], npt.NDArray[Any], bool]]:
     """
         Creates a list of queries for the given data.
 
-
         :param data:
             Either test **or** training data having a column named text.
-        :param load_from_file:
-            If true tries to load the queries from file
-        :param file_path:
-            loads/saves queries into this file
+        :param query_sizes:
+            defines in which sizes the queries should be
         :returns:
-            A Dataframe with len_of_text, query text, the query vector representation, a document index
-            and a bool value if the document is relevant or not.
+            A List of Tuples the query vector representation, the document vector representation
+            and a bool vector size 1 if the document is relevant or not.
     """
-    if load_from_file and file_path.is_file():
-        return pd.read_csv(file_path)
-    queries: List[Tuple[int, str, int, bool]] = []
+    queries: List[Tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]] = []
     query_text_n = [(q, n, document_index) for document_index, sentences in
-                    tqdm([(i, split_into_sentences(text)) for i, text in zip(data.index, data.text)])
+                    tqdm([(i, split_into_sentences(text)) for i, text in zip(data.index, data.text)], desc="Prep data.")
                     for sentence in sentences
                     for n in query_sizes
                     for q in split_sentence_into_n_word_strings(sentence, n)]
     query_texts, _, _ = map(list, zip(*query_text_n))
     pre = monotonic()
-    #query_vectors = sentence_transformer.encode(query_texts)
+    query_vectors = sentence_transformer.encode(query_texts)
     print(f"Encoded all queries in {monotonic() - pre}")
 
-    for query, n, document_index in tqdm(query_text_n, desc='Create queries'):
-        queries.append((n, query, document_index, True))
+    for (query, n, document_index), query_vector in tqdm(zip(query_text_n, query_vectors), desc='Create queries'):
+        rel_doc_vec = data.loc[document_index, ["text_vector"]].tolist()[0]
+        queries.append((query_vector, rel_doc_vec, np.array([1])))
         try:
             irrelevant_document_index = find_random_negative(query, data)
-            queries.append((n, query, irrelevant_document_index, False))
+            irr_doc_vec = data.loc[irrelevant_document_index, ["text_vector"]].tolist()[0]
+            queries.append((query_vector, irr_doc_vec, np.array([0])))
         except ValueError as e:
             print(e)
-    print("Writing to file.")
-    query_dataframe = DataFrame(data=queries, columns=['len_of_text', 'text', 'document', 'relevance'])
-    query_dataframe.to_csv(file_path)
-    print("Finished writing")
-    return query_dataframe
+    return queries
 
 
-def preprocess_data(batch_size: int) -> Tuple[DataLoader, DataLoader]:
-    data = _load_data()
-    if 'vector' not in data.columns:
-        texts = [split_into_sentences(text) for text in tqdm(data.text, desc="Splitting text into sentences")]
-        data['vector'] = [create_vector_representation(s) for s in tqdm(texts, desc="Converting text to vectors")]
-        data.to_csv(song_data_path())
-    if 'text_vector' not in data.columns:
-        data['text_vector'] = [sentence_transformer.encode(" ".join(t.splitlines())) for t in
-                               tqdm(data.text, desc="Converting text to single vector")]
-        data.to_csv(song_data_path())
+def preprocess_data(batch_size: int, file_path: Path = song_data_path()) -> Tuple[DataLoader, DataLoader]:
+    data = _load_data(file_path)
+    data['text_vector'] = [sentence_transformer.encode(" ".join(t.splitlines())) for t in
+                           tqdm(data.text, desc="Converting text to single vector")]
     train_data, test_data = train_test_split(data)
-    train_queries = create_queries(data=train_data, load_from_file=True,
-                                   file_path=Path('train_queries_len_410.csv'), query_sizes=[4, 10])
-    test_queries = create_queries(data=test_data, load_from_file=True, file_path=Path('test_queries_len_410.csv'),
-                                  query_sizes=[4, 10])
-    return DataLoader(train_queries, batch_size=batch_size), DataLoader(test_queries, batch_size=batch_size)
+    train_set = create_queries(train_data, query_sizes=[4, 7, 10])
+    test_set = create_queries(data=test_data, query_sizes=[4, 7, 10])
+
+    return (
+        DataLoader(train_set, batch_size=batch_size),
+        DataLoader(test_set, batch_size=batch_size)
+    )
