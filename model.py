@@ -16,12 +16,12 @@ class DenseNet(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(inputs, inputs),
             nn.LeakyReLU(),
-            nn.Linear(inputs, inputs),
+            nn.Linear(inputs, 150),
             nn.LeakyReLU(),
-            nn.Linear(inputs, inputs),
+            nn.Linear(150, 150),
             nn.LeakyReLU(),
-            nn.Linear(inputs, outputs),
-            nn.Softmax(dim=0)
+            nn.Linear(150, outputs),
+            nn.Sigmoid()
         )
 
     def forward(self, inputs_):
@@ -31,13 +31,12 @@ class DenseNet(nn.Module):
 def train(dataloader, model, optimizer, loss_fn):
     model.train()
     total_truepos, total_falsepos, total_falseneg = 0, 0, 0
-
+    total_loss = 0
     for q_vec, doc_vec, target in dataloader:
         X = torch.cat((q_vec, doc_vec), -1)
+        optimizer.zero_grad()
         pred = model(X)
         loss = loss_fn(pred, target.to(torch.float32))
-
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
@@ -53,12 +52,12 @@ def train(dataloader, model, optimizer, loss_fn):
         total_truepos += truepos
         total_falsepos += falsepos
         total_falseneg += falseneg
+        total_loss += loss
 
-    f1 = calc_f1(total_falseneg, total_falsepos, total_truepos)
-    print(f"Train loss: {loss:>7f}")
+    total_f1 = calc_f1(total_falseneg, total_falsepos, total_truepos)
+    print(f"Epoch loss: {total_loss:>7f}")
     print(f"F1 score: {f1:>7f} \n")
-
-    return loss
+    return total_f1, total_loss
 
 
 def calc_f1(falseneg: float, falsepos: float, truepos: float) -> float:

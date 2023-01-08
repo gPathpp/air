@@ -16,6 +16,7 @@ from multiprocessing import Pool
 sentence_transformer = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')  # TODO try different pretrained model
 sentence_transformer.max_seq_length = 512
 
+
 def song_data_path() -> Path:
     return Path("spotify_abba_songdata.csv")
 
@@ -101,13 +102,14 @@ def create_queries(data: DataFrame, query_sizes: List[int]) -> List[
     return queries
 
 
-def preprocess_data(batch_size: int, file_path: Path = song_data_path()) -> Tuple[DataLoader, DataLoader]:
+def preprocess_data(batch_size: int, file_path: Path = song_data_path(), query_length: int = 50) -> Tuple[
+    DataLoader, DataLoader]:
     data = _load_data(file_path)
     data['text_vector'] = [sentence_transformer.encode(" ".join(t.splitlines())) for t in
                            tqdm(data.text, desc="Converting text to single vector")]
     train_data, test_data = train_test_split(data)
-    train_set = create_queries(train_data, query_sizes=[4, 7, 10])
-    test_set = create_queries(data=test_data, query_sizes=[4, 7, 10])
+    train_set = create_queries(train_data, query_sizes=[query_length])
+    test_set = create_queries(data=test_data, query_sizes=[query_length])
 
     return (
         DataLoader(train_set, batch_size=batch_size),

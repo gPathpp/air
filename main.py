@@ -24,14 +24,13 @@ if __name__ == "__main__":
     # print(model.forward(torch.from_numpy(np.random.random(inputs))))
 
     # train_loader, test_loader = preprocess_data(batch_size=10_000)
-    sentence_transformer = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')
     model = DenseNet(384 * 2, 1)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.02)
     loss_fn = torch.nn.BCELoss()
     train_loader, test_loader = preprocess_data(batch_size=2500)
 
     print("Training started")
-    for i in range(5):
+    for i in range(20):
         print(f"Epoch {i + 1}\n-------------------------------")
         train(train_loader, model, optimizer, loss_fn)
        # test(test_loader, model, loss_fn)
