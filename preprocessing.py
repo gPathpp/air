@@ -88,7 +88,7 @@ def create_queries(data: DataFrame, query_sizes: List[int]) -> List[
     query_texts, _, _ = map(list, zip(*query_text_n))
     pre = monotonic()
     query_vectors = sentence_transformer.encode(query_texts)
-    print(f"Encoded all queries in {monotonic() - pre}")
+    print(f"Encoded queries in {monotonic() - pre} seconds.")
 
     for (query, n, document_index), query_vector in tqdm(zip(query_text_n, query_vectors), desc='Create queries'):
         rel_doc_vec = data.loc[document_index, ["text_vector"]].tolist()[0]
