@@ -6,6 +6,8 @@ from model import test
 from model import train
 from preprocessing import preprocess_data
 
+from baseline import train_baseline, test_baseline
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 columns = ['len_of_text', 'text', 'document', 'relevance']
 
@@ -13,6 +15,7 @@ if __name__ == "__main__":
     train_loss_dict, test_loss_dict = {}, {}
     train_f1_dict, test_f1_dict = {}, {}
     cos_train_f1_dict, cos_test_f1_dict = {}, {}
+    cos_train_loss_dict, cos_test_loss_dict = {}, {}
     for query_length in [20, 30, 50, 75, 100]:
         model = DenseNet(384 * 2, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
@@ -23,8 +26,11 @@ if __name__ == "__main__":
         test_loss_dict[query_length] = []
         train_f1_dict[query_length] = []
         test_f1_dict[query_length] = []
+
         cos_train_f1_dict[query_length] = []
         cos_test_f1_dict[query_length] = []
+        cos_train_loss_dict[query_length] = []
+        cos_test_loss_dict[query_length] = []
         # ---------------------------------------------------------------------------------------
         print("Training started")
         for i in range(100):
@@ -39,7 +45,20 @@ if __name__ == "__main__":
             #   cos_train_f1_dict[query_length] = []
             #   cos_test_f1_dict[query_length] = []
 
+            baseline_train_loss, baseline_train_f1 = train_baseline(train_loader, loss_fn)
+            baseline_test_loss, baseline_test_f1 = test_baseline(test_loader, loss_fn)
+
+            cos_train_f1_dict[query_length].append(baseline_train_f1)
+            cos_test_f1_dict[query_length].append(baseline_test_f1)
+            cos_train_loss_dict[query_length].append(baseline_train_loss)
+            cos_test_loss_dict[query_length].append(baseline_test_loss)
+
     pd.DataFrame(data=train_loss_dict).to_csv("train_loss.csv")
     pd.DataFrame(data=test_loss_dict).to_csv("test_loss.csv")
     pd.DataFrame(data=train_f1_dict).to_csv("train_f1.csv")
     pd.DataFrame(data=test_f1_dict).to_csv("test_f1.csv")
+
+    pd.DataFrame(data=cos_train_f1_dict).to_csv("cos_train_f1.csv")
+    pd.DataFrame(data=cos_test_f1_dict).to_csv("cos_test_f1.csv")
+    pd.DataFrame(data=cos_train_loss_dict).to_csv("cos_train_loss.csv")
+    pd.DataFrame(data=cos_test_loss_dict).to_csv("cos_test_loss.csv")
