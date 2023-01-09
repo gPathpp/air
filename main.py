@@ -4,7 +4,7 @@ import torch
 from tqdm import tqdm
 
 from baseline import train_baseline, test_baseline
-from model import DenseNet, test, train
+from model import Model, test, train
 
 from preprocessing import preprocess_data
 
@@ -17,7 +17,7 @@ if __name__ == "__main__":
     cos_train_f1_dict, cos_test_f1_dict = {}, {}
     cos_train_loss_dict, cos_test_loss_dict = {}, {}
     for q_len in [5, 15, 30, 50, 75, 100]:
-        model = DenseNet(384 * 2, 1)
+        model = Model(384 * 2)
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
         loss_fn = torch.nn.BCELoss()
         train_loader, test_loader = preprocess_data(batch_size=10000, query_length=q_len)

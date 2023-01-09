@@ -2,13 +2,12 @@ import torch
 from torch import nn
 
 
-class DenseNet(nn.Module):
-    def __init__(self, inputs: int, outputs: int):
+class Model(nn.Module):
+    def __init__(self, inputs: int):
         """
         :param inputs: length of input vector
-        :param outputs: number of classes
         """
-        super(DenseNet, self).__init__()
+        super(Model, self).__init__()
 
         self.net = nn.Sequential(
             nn.Linear(inputs, inputs),
@@ -17,7 +16,7 @@ class DenseNet(nn.Module):
             nn.LeakyReLU(),
             nn.Linear(150, 150),
             nn.LeakyReLU(),
-            nn.Linear(150, outputs),
+            nn.Linear(150, 1),
             nn.Sigmoid()
         )
 
